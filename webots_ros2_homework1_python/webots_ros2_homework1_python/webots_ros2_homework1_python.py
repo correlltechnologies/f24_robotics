@@ -189,7 +189,7 @@ class HeuristicSearch(Node):
             print(f"  Most Distant Point: {log['most_distant_point']:.2f} meters")
 
     def plot_robot_path(self, trial_num):
-        img = mpimg.imread('apartment_image.png')  # Replace with your actual image
+        img = mpimg.imread('apartment.png')  # Replace with your actual image
         x_coords, y_coords = zip(*self.path)
         plt.imshow(img, extent=[0, 10, 0, 10])  # Adjust extent based on your image size
         plt.plot(x_coords, y_coords, label=f'Trial {trial_num}')
@@ -201,7 +201,7 @@ class HeuristicSearch(Node):
         plt.show()
 
     def plot_all_trials(self):
-        img = mpimg.imread('apartment_image.png')  # Replace with your actual image
+        img = mpimg.imread('apartment.png')  # Replace with your actual image
         plt.imshow(img, extent=[0, 10, 0, 10])  # Adjust extent based on your image size
         for trial_num, log in enumerate(self.trial_logs):
             path = log['path']
