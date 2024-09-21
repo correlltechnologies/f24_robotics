@@ -19,6 +19,10 @@ RIGHT_FRONT_INDEX = 210
 LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
 
+# Stall detection constants
+STALL_THRESHOLD = 0.01  # Minimum movement threshold to detect a stall
+STALL_TIME_THRESHOLD = 3  # Time in seconds before stall is detected
+
 class HeuristicSearch(Node):
 
     def __init__(self):
@@ -40,6 +44,11 @@ class HeuristicSearch(Node):
         self.last_position = None
         self.path = []
         self.trial_logs = []  # Logs for each trial
+        
+        # Stall detection variables
+        self.last_position_check = None
+        self.stall_time = 0
+        self.stall_detected = False
 
         # ROS2 publishers and subscribers
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
@@ -85,9 +94,48 @@ class HeuristicSearch(Node):
             if start_distance > self.most_distant_point:
                 self.most_distant_point = start_distance
 
+        # Stall detection logic
+        self.detect_stall(position)
+
         # Store the current position for path plotting
         self.path.append((position.x, position.y))
         self.last_position = position
+
+    def detect_stall(self, current_position):
+        # If this is the first check, set the last_position_check
+        if self.last_position_check is None:
+            self.last_position_check = current_position
+            return
+        
+        # Calculate the distance moved since last check
+        dx = current_position.x - self.last_position_check.x
+        dy = current_position.y - self.last_position_check.y
+        movement = math.sqrt(dx**2 + dy**2)
+
+        if movement < STALL_THRESHOLD:
+            # Increment stall time if movement is below threshold
+            self.stall_time += self.timer_period
+            if self.stall_time >= STALL_TIME_THRESHOLD:
+                self.stall_detected = True
+                self.recover_from_stall()
+        else:
+            # Reset stall detection if movement is above threshold
+            self.stall_time = 0
+            self.stall_detected = False
+
+        # Update the position check
+        self.last_position_check = current_position
+
+    def recover_from_stall(self):
+        # Take corrective action, such as rotating or reversing
+        self.get_logger().info('Stall detected, recovering...')
+        self.cmd.linear.x = 0.0  # Stop moving forward
+        self.cmd.angular.z = 0.5  # Rotate to try and get unstuck
+        self.publisher_.publish(self.cmd)
+        rclpy.spin_once(self, timeout_sec=2.0)  # Rotate for 2 seconds
+        self.cmd.angular.z = 0.0  # Stop rotating
+        self.publisher_.publish(self.cmd)
+        self.stall_detected = False
 
     def timer_callback(self):
         if len(self.scan_cleaned) == 0:
