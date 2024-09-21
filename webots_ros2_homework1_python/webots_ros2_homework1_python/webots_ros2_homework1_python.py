@@ -19,9 +19,10 @@ LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
 
 # Stall detection constants
-STALL_THRESHOLD = 0.05  # Increased movement threshold to detect a stall
+STALL_THRESHOLD = 0.05  # Movement threshold to detect a stall
 STALL_TIME_THRESHOLD = 3  # Time in seconds before stall is detected
 STARTUP_DELAY = 5  # Delay before checking for stalls
+STALL_LIDAR_THRESHOLD = 0.1  # Minimum distance for stall detection with LiDAR
 
 class HeuristicSearch(Node):
 
@@ -30,7 +31,7 @@ class HeuristicSearch(Node):
         
         # Robot state
         self.scan_cleaned = []
-        self.stall = False
+        self.stall_detected = False
         self.turtlebot_moving = False
         self.laser_forward = 0
         self.odom_data = 0
@@ -48,7 +49,6 @@ class HeuristicSearch(Node):
         # Stall detection variables
         self.last_position_check = None
         self.stall_time = 0
-        self.stall_detected = False
         self.start_time = time.time()  # Start time for delay
 
         # ROS2 publishers and subscribers
@@ -117,8 +117,12 @@ class HeuristicSearch(Node):
         dy = current_position.y - self.last_position_check.y
         movement = math.sqrt(dx**2 + dy**2)
 
-        if movement < STALL_THRESHOLD:
-            # Increment stall time if movement is below threshold
+        # Check LiDAR for obstacle very close to robot
+        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
+        is_obstacle_near = front_lidar_min < STALL_LIDAR_THRESHOLD
+
+        if movement < STALL_THRESHOLD and is_obstacle_near:
+            # Increment stall time if movement is below threshold and an obstacle is near
             self.stall_time += self.timer_period
             if self.stall_time >= STALL_TIME_THRESHOLD:
                 self.stall_detected = True
@@ -132,15 +136,22 @@ class HeuristicSearch(Node):
         self.last_position_check = current_position
 
     def recover_from_stall(self):
-        # Take corrective action, such as rotating or reversing
+        # Take corrective action to get unstuck
         self.get_logger().info('Stall detected, recovering...')
         self.cmd.linear.x = 0.0  # Stop moving forward
-        self.cmd.angular.z = 0.5  # Rotate to try and get unstuck
+        self.cmd.angular.z = 0.5  # Rotate 90 degrees
         self.publisher_.publish(self.cmd)
-        rclpy.spin_once(self, timeout_sec=2.0)  # Rotate for 2 seconds
-        self.cmd.angular.z = 0.0  # Stop rotating
+        rclpy.spin_once(self, timeout_sec=1.0)  # Rotate for 1 second
+        
+        # Stop rotating and try moving forward again
+        self.cmd.angular.z = 0.0
+        self.cmd.linear.x = LINEAR_VEL
         self.publisher_.publish(self.cmd)
+        rclpy.spin_once(self, timeout_sec=2.0)  # Move forward for 2 seconds
+
+        # Reset the stall flag after recovery attempt
         self.stall_detected = False
+        self.get_logger().info('Stall recovery attempted, moving again...')
 
     def timer_callback(self):
         if len(self.scan_cleaned) == 0:
