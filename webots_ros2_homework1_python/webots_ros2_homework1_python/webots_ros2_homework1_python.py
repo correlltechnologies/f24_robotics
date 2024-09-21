@@ -5,8 +5,7 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
+import time
 
 # Constants for the robot control
 LINEAR_VEL = 0.22
@@ -20,8 +19,9 @@ LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
 
 # Stall detection constants
-STALL_THRESHOLD = 0.01  # Minimum movement threshold to detect a stall
+STALL_THRESHOLD = 0.05  # Increased movement threshold to detect a stall
 STALL_TIME_THRESHOLD = 3  # Time in seconds before stall is detected
+STARTUP_DELAY = 5  # Delay before checking for stalls
 
 class HeuristicSearch(Node):
 
@@ -49,6 +49,7 @@ class HeuristicSearch(Node):
         self.last_position_check = None
         self.stall_time = 0
         self.stall_detected = False
+        self.start_time = time.time()  # Start time for delay
 
         # ROS2 publishers and subscribers
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
@@ -102,6 +103,10 @@ class HeuristicSearch(Node):
         self.last_position = position
 
     def detect_stall(self, current_position):
+        # Wait for the startup delay before activating stall detection
+        if time.time() - self.start_time < STARTUP_DELAY:
+            return
+
         # If this is the first check, set the last_position_check
         if self.last_position_check is None:
             self.last_position_check = current_position
