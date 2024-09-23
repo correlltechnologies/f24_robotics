@@ -5,107 +5,138 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
+import matplotlib.pyplot as plt
+import numpy as np
+import csv
+from PIL import Image
+import keyboard  # New import to handle keypresses
 
-LINEAR_VEL = 0.2
+# Constants
+LINEAR_VEL = 0.22
 STOP_DISTANCE = 0.2
 LIDAR_ERROR = 0.05
-LIDAR_AVOID_DISTANCE = 0.7
+LIDAR_AVOID_DISTANCE = 0.35  # Follow wall closer
 SAFE_STOP_DISTANCE = STOP_DISTANCE + LIDAR_ERROR
-WALL_FOLLOW_DISTANCE = 0.5  # Distance to maintain from the wall
+TURN_SPEED = 0.5  # Faster turning when adjusting
 RIGHT_SIDE_INDEX = 270
 RIGHT_FRONT_INDEX = 210
-FRONT_INDEX = 180
 LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
+DISTANCE_THRESHOLD = 0.001  # Threshold for determining the most distant points
+APARTMENT_IMAGE_PATH = "apartment.png"
 
-class WallFollower(Node):
+class RandomWalk(Node):
 
     def __init__(self):
-        super().__init__('wall_follower_node')
+        super().__init__('random_walk_node')
         self.scan_cleaned = []
-        self.turtlebot_moving = False
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
         self.subscriber1 = self.create_subscription(
-            LaserScan,
-            '/scan',
-            self.listener_callback1,
+            LaserScan, '/scan', self.listener_callback1,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.subscriber2 = self.create_subscription(
-            Odometry,
-            '/odom',
-            self.listener_callback2,
+            Odometry, '/odom', self.listener_callback2,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.timer_period = 0.1
+
+        self.odom_data = None
+        self.pose_history = []
+        self.total_distance = 0.0
+        self.distant_points = {"top_left": (-float('inf'), float('inf')),
+                               "top_right": (float('inf'), float('inf')),
+                               "bottom_left": (-float('inf'), -float('inf')),
+                               "bottom_right": (float('inf'), -float('inf'))}
         self.cmd = Twist()
-        self.timer = self.create_timer(self.timer_period, self.timer_callback)
-        self.wall_found = False  # Track if wall is found
+        self.timer = self.create_timer(0.5, self.timer_callback)
 
     def listener_callback1(self, msg1):
         scan = msg1.ranges
-        self.scan_cleaned = []
-        
-        for reading in scan:
-            if reading == float('Inf'):
-                self.scan_cleaned.append(3.5)  # Maximum range for LIDAR
-            elif math.isnan(reading):
-                self.scan_cleaned.append(0.0)  # Invalid readings as 0
-            else:
-                self.scan_cleaned.append(reading)
+        self.scan_cleaned = [3.5 if reading == float('Inf') else (0.0 if math.isnan(reading) else reading) for reading in scan]
 
     def listener_callback2(self, msg2):
-        # Odometry data if needed for more advanced localization
-        pass
+        position = msg2.pose.pose.position
+        if self.odom_data is not None:
+            self.total_distance += math.sqrt((position.x - self.odom_data.x)**2 + (position.y - self.odom_data.y)**2)
+        self.odom_data = position
+        self.pose_history.append((position.x, position.y))
+        self.update_distant_points(position)
+
+    def update_distant_points(self, position):
+        # Update the most distant points in each zone
+        if position.x < 0 and position.y > 0:  # Top left zone
+            if position.x < self.distant_points["top_left"][0]:
+                self.distant_points["top_left"] = (position.x, position.y)
+        elif position.x > 0 and position.y > 0:  # Top right zone
+            if position.x > self.distant_points["top_right"][0]:
+                self.distant_points["top_right"] = (position.x, position.y)
+        elif position.x < 0 and position.y < 0:  # Bottom left zone
+            if position.x < self.distant_points["bottom_left"][0]:
+                self.distant_points["bottom_left"] = (position.x, position.y)
+        elif position.x > 0 and position.y < 0:  # Bottom right zone
+            if position.x > self.distant_points["bottom_right"][0]:
+                self.distant_points["bottom_right"] = (position.x, position.y)
 
     def timer_callback(self):
         if not self.scan_cleaned:
-            return  # No data yet
-
-        right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
-        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
-        
-        # 1. No wall on the right -> Move forward until wall is detected
-        if not self.wall_found:
-            if right_lidar_min > WALL_FOLLOW_DISTANCE:
-                self.cmd.linear.x = LINEAR_VEL
-                self.cmd.angular.z = 0.0
-                self.publisher_.publish(self.cmd)
-                self.get_logger().info('Searching for wall...')
-            else:
-                self.wall_found = True  # Wall found, now start wall-following
-                self.get_logger().info('Wall detected! Starting to follow.')
             return
 
-        # 2. Wall found, follow the wall on the right while avoiding front obstacles
+        left_lidar_min = min(self.scan_cleaned[LEFT_SIDE_INDEX:LEFT_FRONT_INDEX])
+        right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
+        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
+
         if front_lidar_min < SAFE_STOP_DISTANCE:
-            # Obstacle ahead, turn left
             self.cmd.linear.x = 0.0
-            self.cmd.angular.z = 0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Obstacle ahead, turning left...')
-        elif right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
-            # Too close to the wall, turn left slightly
-            self.cmd.linear.x = LINEAR_VEL * 0.5
-            self.cmd.angular.z = 0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too close to wall, adjusting left...')
-        elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
-            # Too far from the wall, turn right slightly
-            self.cmd.linear.x = LINEAR_VEL * 0.5
-            self.cmd.angular.z = -0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too far from wall, adjusting right...')
+            self.cmd.angular.z = 0.0
+        elif front_lidar_min < LIDAR_AVOID_DISTANCE:
+            self.cmd.linear.x = 0.1
+            self.cmd.angular.z = TURN_SPEED if right_lidar_min > left_lidar_min else -TURN_SPEED
         else:
-            # Maintain distance from the wall and move forward
             self.cmd.linear.x = LINEAR_VEL
             self.cmd.angular.z = 0.0
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Following the wall...')
+
+        self.publisher_.publish(self.cmd)
+
+    def save_results(self):
+        # Save path history and distant points
+        with open('trial_results.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['X', 'Y'])
+            for point in self.pose_history:
+                writer.writerow([point[0], point[1]])
+
+        # Log total distance and distant points
+        self.get_logger().info(f'Total distance: {self.total_distance}')
+        for zone, coords in self.distant_points.items():
+            self.get_logger().info(f'{zone.capitalize()} - Most distant point: {coords}')
+
+    def plot_path(self):
+        apartment_img = Image.open(APARTMENT_IMAGE_PATH)
+        plt.imshow(apartment_img, extent=[-10, 10, -10, 10])  # Adjust extent according to the map size
+
+        data = np.array(self.pose_history)
+        plt.plot(data[:, 0], data[:, 1], label='Trial Path')
+
+        plt.legend()
+        plt.title('Robot Path for Trial')
+        plt.savefig('robot_path.png')
+        plt.show()
 
 def main(args=None):
     rclpy.init(args=args)
-    wall_follower_node = WallFollower()
-    rclpy.spin(wall_follower_node)
-    wall_follower_node.destroy_node()
+    random_walk_node = RandomWalk()
+
+    try:
+        # Run the trial until 'E' key is pressed
+        print("Press 'E' to end the trial.")
+        while not keyboard.is_pressed('e'):
+            rclpy.spin_once(random_walk_node)
+    except KeyboardInterrupt:
+        pass  # Handle ctrl+c to exit
+
+    # Save the results and plot the path
+    random_walk_node.save_results()
+    random_walk_node.plot_path()
+
+    random_walk_node.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
