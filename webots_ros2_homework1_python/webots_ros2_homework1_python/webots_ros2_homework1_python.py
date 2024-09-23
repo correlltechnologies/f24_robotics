@@ -41,13 +41,10 @@ class WallFollower(Node):
             '/odom',
             self.listener_callback2,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-                self.odom_data = None
+        self.odom_data = None
         self.pose_history = []
         self.total_distance = 0.0
-        self.distant_points = {"top_left": (-float('inf'), float('inf')),
-                               "top_right": (float('inf'), float('inf')),
-                               "bottom_left": (-float('inf'), -float('inf')),
-                               "bottom_right": (float('inf'), -float('inf'))}
+        self.distant_points = {"top_left": (-float('inf'), float('inf')), "top_right": (float('inf'), float('inf')), "bottom_left": (-float('inf'), -float('inf')), "bottom_right": (float('inf'), -float('inf'))}
         self.timer_period = 0.1
         self.cmd = Twist()
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
@@ -140,7 +137,7 @@ class WallFollower(Node):
         self.get_logger().info(f'Total distance: {self.total_distance}')
         for zone, coords in self.distant_points.items():
             self.get_logger().info(f'{zone.capitalize()} - Most distant point: {coords}')
-   
+            
     def plot_path(self):
         apartment_img = Image.open(APARTMENT_IMAGE_PATH)
         plt.imshow(apartment_img, extent=[-10, 10, -10, 10])  # Adjust extent according to the map size
