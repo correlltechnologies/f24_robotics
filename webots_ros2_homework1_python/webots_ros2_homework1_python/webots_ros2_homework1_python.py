@@ -6,12 +6,12 @@ from nav_msgs.msg import Odometry
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
 
-LINEAR_VEL = 0.2
+LINEAR_VEL = 0.5
 STOP_DISTANCE = 0.2
 LIDAR_ERROR = 0.05
 LIDAR_AVOID_DISTANCE = 0.7
 SAFE_STOP_DISTANCE = STOP_DISTANCE + LIDAR_ERROR
-WALL_FOLLOW_DISTANCE = 0.5  # Distance to maintain from the wall
+WALL_FOLLOW_DISTANCE = 0.3  # Distance to maintain from the wall
 RIGHT_SIDE_INDEX = 270
 RIGHT_FRONT_INDEX = 210
 FRONT_INDEX = 180
