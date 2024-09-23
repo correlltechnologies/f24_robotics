@@ -22,7 +22,7 @@ FRONT_INDEX = 180
 LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
 DISTANCE_THRESHOLD = 0.001  # Threshold for determining the most distant points
-APARTMENT_IMAGE_PATH = "apartment.png"
+APARTMENT_IMAGE_PATH = "/f24_robotics/Homework1/apartment.png"
 
 class WallFollower(Node):
 
