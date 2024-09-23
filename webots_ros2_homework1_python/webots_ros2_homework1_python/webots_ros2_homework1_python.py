@@ -152,14 +152,14 @@ class WallFollower(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    random_walk_node = RandomWalk()
+    wall_follower_node = WallFollower()
 
     try:
-        rclpy.spin(random_walk_node)
+        rclpy.spin(wall_follower_node)
     except KeyboardInterrupt:
         pass
 
-    random_walk_node.destroy_node()
+    wall_follower_node.destroy_node()
     rclpy.shutdown()
 
 
