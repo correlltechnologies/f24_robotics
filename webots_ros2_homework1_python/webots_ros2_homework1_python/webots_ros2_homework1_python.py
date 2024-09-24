@@ -203,8 +203,8 @@ class WallFollower(Node):
         # Define hardcoded starting point (x_start, y_start)
         x_start = -7.6 + map_offset  # Adjust this value based on your setup
         y_start = 3.5 - map_offset # Adjust this value based on your setup
-        scaled_start_x = y_start + scale_x
-        scaled_start_y = -x_start + scale_y
+        scaled_start_x = y_start + scaled_x
+        scaled_start_y = -x_start + scaled_y
 
         # Plot the adjusted path
         plt.plot(scaled_start_x, scaled_start_y, label='Trial Path', color='red', linewidth=2)
