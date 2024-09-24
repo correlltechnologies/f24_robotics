@@ -199,8 +199,17 @@ class WallFollower(Node):
         scaled_x = data[:, 1] * scale_x  # Scale the y-values (which become x in the plot)
         scaled_y = -data[:, 0] * scale_y  # Scale the x-values (which become y in the plot) and invert
 
+        # Define hardcoded starting point (x_start, y_start)
+        x_start = 1.0  # Adjust this value based on your setup
+        y_start = -1.0  # Adjust this value based on your setup
+        scaled_start_x = y_start * scale_x
+        scaled_start_y = -x_start * scale_y
+
         # Plot the adjusted path
         plt.plot(scaled_x, scaled_y, label='Trial Path', color='red', linewidth=2)
+
+        # Plot the starting point
+        plt.scatter(scaled_start_x, scaled_start_y, color='blue', marker='o', label='Starting Point', s=100)
 
         # Add legend and title
         plt.legend()
