@@ -185,7 +185,7 @@ class WallFollower(Node):
         apartment_img = Image.open(APARTMENT_IMAGE_PATH)
 
         # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
-        extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
+        extent = [-8.5, 8.5, -8.5, 8.5]  # Example extent for a 20x20 apartment
 
         # Load and show the apartment image
         plt.imshow(apartment_img, extent=extent)
