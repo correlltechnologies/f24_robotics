@@ -185,7 +185,7 @@ class WallFollower(Node):
         apartment_img = Image.open(APARTMENT_IMAGE_PATH)
 
         # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
-        extent = [-8.5, 8.5, -8.5, 8.5]  # Example extent for a 20x20 apartment
+        extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
 
         # Load and show the apartment image
         plt.imshow(apartment_img, extent=extent)
@@ -199,9 +199,10 @@ class WallFollower(Node):
         scaled_x = data[:, 1] * scale_x  # Scale the y-values (which become x in the plot)
         scaled_y = -data[:, 0] * scale_y  # Scale the x-values (which become y in the plot) and invert
 
+        map_offset = 1.5
         # Define hardcoded starting point (x_start, y_start)
-        x_start = -7.6  # Adjust this value based on your setup
-        y_start = 3.5  # Adjust this value based on your setup
+        x_start = -7.6 + map_offset  # Adjust this value based on your setup
+        y_start = 3.5 - map_offset # Adjust this value based on your setup
         scaled_start_x = y_start + scale_x
         scaled_start_y = -x_start + scale_y
 
