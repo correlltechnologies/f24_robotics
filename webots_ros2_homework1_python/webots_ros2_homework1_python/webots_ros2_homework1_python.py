@@ -196,8 +196,8 @@ class WallFollower(Node):
         # Scale the x and y axes by their respective scaling factors
         scale_x = 3.134  # Scaling factor for x-axis
         scale_y = 1.393  # Scaling factor for y-axis
-        scaled_x = data[:, 1] * scale_x  # Scale the y-values (which become x in the plot)
-        scaled_y = -data[:, 0] * scale_y  # Scale the x-values (which become y in the plot) and invert
+        scaled_x = data[:, 0] * scale_x  # Scale the y-values (which become x in the plot)
+        scaled_y = -data[:, 1] * scale_y  # Scale the x-values (which become y in the plot) and invert
 
         map_offset = 1.8
         # Define hardcoded starting point (x_start, y_start)
