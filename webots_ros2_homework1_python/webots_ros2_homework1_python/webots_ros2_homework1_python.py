@@ -179,8 +179,8 @@ class WallFollower(Node):
         # Convert the pose history to a numpy array for easier manipulation
         data = np.array(self.pose_history)
 
-        # Scale the path by a factor of 10
-        scaled_data = data * 10
+        # Scale the path by a factor of 5
+        scaled_data = data * 5
     
         # Swap x and y to fix rotation and invert y-axis (multiply y by -1)
         path_x = scaled_data[:, 1]  # Use y as x
