@@ -156,35 +156,35 @@ class WallFollower(Node):
         for zone, coords in self.distant_points.items():
             self.get_logger().info(f'{zone.capitalize()} - Most distant point: {coords}')
             
-def plot_path(self):
-    apartment_img = Image.open(APARTMENT_IMAGE_PATH)
+    def plot_path(self):
+        apartment_img = Image.open(APARTMENT_IMAGE_PATH)
     
-    # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
-    # Swap x and y, and invert y-axis to correct rotation (counter-clockwise by 90 degrees)
-    extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
+        # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
+        # Swap x and y, and invert y-axis to correct rotation (counter-clockwise by 90 degrees)
+        extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
     
-    # Load and show the apartment image
-    plt.imshow(apartment_img, extent=extent)
+        # Load and show the apartment image
+        plt.imshow(apartment_img, extent=extent)
     
-    # Convert the pose history to a numpy array for easier manipulation
-    data = np.array(self.pose_history)
+        # Convert the pose history to a numpy array for easier manipulation
+        data = np.array(self.pose_history)
     
-    # Swap x and y to fix rotation and possibly invert y-axis (multiply y by -1)
-    path_x = data[:, 1]  # Use y as x
-    path_y = -data[:, 0]  # Use -x as y to correct orientation
+        # Swap x and y to fix rotation and possibly invert y-axis (multiply y by -1)
+        path_x = data[:, 1]  # Use y as x
+        path_y = -data[:, 0]  # Use -x as y to correct orientation
     
-    # Plot the adjusted path
-    plt.plot(path_x, path_y, label='Trial Path', color='red', linewidth=2)
+        # Plot the adjusted path
+        plt.plot(path_x, path_y, label='Trial Path', color='red', linewidth=2)
 
-    # Add legend and title
-    plt.legend()
-    plt.title('Robot Path for Trial')
+        # Add legend and title
+        plt.legend()
+        plt.title('Robot Path for Trial')
     
-    # Save the plot as an image
-    plt.savefig('robot_path.png')
+        # Save the plot as an image
+        plt.savefig('robot_path.png')
     
-    # Clear the figure to free memory
-    plt.clf()  # Clear the figure to avoid memory issues
+        # Clear the figure to free memory
+        plt.clf()  # Clear the figure to avoid memory issues
 
 def main(args=None):
     rclpy.init(args=args)
