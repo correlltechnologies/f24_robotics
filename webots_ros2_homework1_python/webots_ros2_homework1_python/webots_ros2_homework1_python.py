@@ -3,6 +3,9 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
+from tf2_ros import TransformListener, Buffer
+from tf2_ros.transform_broadcaster import TransformBroadcaster
+from tf_transformations import euler_from_quaternion
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
 import matplotlib.pyplot as plt
@@ -31,16 +34,20 @@ class WallFollower(Node):
         self.scan_cleaned = []
         self.turtlebot_moving = False
         self.publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
+
+        # Subscriptions for LaserScan and Odometry
         self.subscriber1 = self.create_subscription(
             LaserScan,
             '/scan',
             self.listener_callback1,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+
         self.subscriber2 = self.create_subscription(
             Odometry,
             '/odom',
             self.listener_callback2,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+
         self.odom_data = None
         self.pose_history = []
         self.total_distance = 0.0
@@ -48,22 +55,50 @@ class WallFollower(Node):
         self.timer_period = 0.1
         self.cmd = Twist()
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
-        self.wall_found = False  # Track if wall is found
-        # Add an iteration counter and a constant N
+        self.wall_found = False
         self.iteration_counter = 0
-        self.N = 50  # Change this to your desired number of iterations
+        self.N = 50
+
+        # TF setup
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.global_frame = 'map'  # Global frame, usually 'map' if AMCL is running
+        self.odom_frame = 'odom'   # Local frame
 
     def listener_callback1(self, msg1):
         scan = msg1.ranges
         self.scan_cleaned = [3.5 if reading == float('Inf') else (0.0 if math.isnan(reading) else reading) for reading in scan]
 
     def listener_callback2(self, msg2):
-        position = msg2.pose.pose.position
-        if self.odom_data is not None:
-            self.total_distance += math.sqrt((position.x - self.odom_data.x)**2 + (position.y - self.odom_data.y)**2)
-        self.odom_data = position
-        self.pose_history.append((position.x, position.y))
-        self.update_distant_points(position)
+        try:
+            # Try to lookup the transform from odom to the global map frame
+            now = rclpy.time.Time()
+            transform = self.tf_buffer.lookup_transform(self.global_frame, self.odom_frame, now)
+
+            # Extract the translation and rotation from the transform
+            position = transform.transform.translation
+            rotation = transform.transform.rotation
+            orientation = euler_from_quaternion([rotation.x, rotation.y, rotation.z, rotation.w])
+            
+            # Log the global position (x, y) and the yaw angle
+            global_x = position.x
+            global_y = position.y
+            yaw = orientation[2]  # Extract yaw from quaternion
+            
+            # Append to pose history
+            self.pose_history.append((global_x, global_y))
+
+            # Update the total distance traveled
+            if self.odom_data is not None:
+                self.total_distance += math.sqrt((global_x - self.odom_data[0])**2 + (global_y - self.odom_data[1])**2)
+            self.odom_data = (global_x, global_y)
+
+            # Update the most distant points in the zones
+            self.update_distant_points(global_x, global_y)
+
+        except Exception as e:
+            self.get_logger().warn(f"Could not transform between {self.global_frame} and {self.odom_frame}: {str(e)}")
+
 
     def timer_callback(self):
         if not self.scan_cleaned:
@@ -151,23 +186,22 @@ class WallFollower(Node):
         
         # Increment the iteration counter
         self.iteration_counter += 1
-        
-
-    def update_distant_points(self, position):
-        # Update the most distant points in each zone
-        if position.x < 0 and position.y > 0:  # Top left zone
-            if position.x < self.distant_points["top_left"][0]:
-                self.distant_points["top_left"] = (position.x, position.y)
-        elif position.x > 0 and position.y > 0:  # Top right zone
-            if position.x > self.distant_points["top_right"][0]:
-                self.distant_points["top_right"] = (position.x, position.y)
-        elif position.x < 0 and position.y < 0:  # Bottom left zone
-            if position.x < self.distant_points["bottom_left"][0]:
-                self.distant_points["bottom_left"] = (position.x, position.y)
-        elif position.x > 0 and position.y < 0:  # Bottom right zone
-            if position.x > self.distant_points["bottom_right"][0]:
-                self.distant_points["bottom_right"] = (position.x, position.y)
     
+    def update_distant_points(self, x, y):
+        # Update the most distant points in each zone
+        if x < 0 and y > 0:  # Top left zone
+            if x < self.distant_points["top_left"][0]:
+                self.distant_points["top_left"] = (x, y)
+        elif x > 0 and y > 0:  # Top right zone
+            if x > self.distant_points["top_right"][0]:
+                self.distant_points["top_right"] = (x, y)
+        elif x < 0 and y < 0:  # Bottom left zone
+            if x < self.distant_points["bottom_left"][0]:
+                self.distant_points["bottom_left"] = (x, y)
+        elif x > 0 and y < 0:  # Bottom right zone
+            if x > self.distant_points["bottom_right"][0]:
+                self.distant_points["bottom_right"] = (x, y)
+
     def save_results(self):
         # Save path history and distant points
         with open('trial_results.csv', 'w', newline='') as csvfile:
