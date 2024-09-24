@@ -200,8 +200,8 @@ class WallFollower(Node):
         scaled_y = -data[:, 0] * scale_y  # Scale the x-values (which become y in the plot) and invert
 
         # Define hardcoded starting point (x_start, y_start)
-        x_start = 1.0  # Adjust this value based on your setup
-        y_start = -1.0  # Adjust this value based on your setup
+        x_start = -7.6  # Adjust this value based on your setup
+        y_start = 3.5  # Adjust this value based on your setup
         scaled_start_x = y_start * scale_x
         scaled_start_y = -x_start * scale_y
 
