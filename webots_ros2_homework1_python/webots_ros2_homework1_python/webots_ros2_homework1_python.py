@@ -66,50 +66,67 @@ class WallFollower(Node):
         self.save_results()
         self.plot_path()
 
-    def timer_callback(self):
-        if not self.scan_cleaned:
-            return  # No data yet
+def timer_callback(self):
+    if not self.scan_cleaned:
+        return  # No data yet
 
-        right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
-        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
-        
-        # 1. No wall on the right -> Move forward until wall is detected
-        if not self.wall_found:
-            if right_lidar_min > WALL_FOLLOW_DISTANCE:
-                self.cmd.linear.x = LINEAR_VEL
-                self.cmd.angular.z = 0.0
-                self.publisher_.publish(self.cmd)
-                self.get_logger().info('Searching for wall...')
-            else:
-                self.wall_found = True  # Wall found, now start wall-following
-                self.get_logger().info('Wall detected! Starting to follow.')
-            return
+    right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
+    front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
+    
+    # 1. No wall on the right -> Move forward until wall is detected
+    if not self.wall_found:
+        if right_lidar_min > WALL_FOLLOW_DISTANCE:
+            self.cmd.linear.x = LINEAR_VEL
+            self.cmd.angular.z = 0.0
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Searching for wall...')
+        else:
+            self.wall_found = True  # Wall found, now start wall-following
+            self.get_logger().info('Wall detected! Starting to follow.')
+        return
 
-        # 2. Wall found, follow the wall on the right while avoiding front obstacles
-        if front_lidar_min < SAFE_STOP_DISTANCE:
-            # Obstacle ahead, turn left
+    # Check if robot is stuck (e.g., close obstacle in front for too long)
+    if front_lidar_min < SAFE_STOP_DISTANCE:
+        # Increment stuck counter
+        self.stuck_counter += 1
+
+        # If stuck for multiple consecutive checks, back up
+        if self.stuck_counter > 3:  # Customize how many cycles determine 'stuck'
+            self.cmd.linear.x = -0.1  # Back up slowly
+            self.cmd.angular.z = 0.0
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Stuck! Backing up...')
+            self.stuck_counter = 0  # Reset stuck counter after backing up
+        else:
+            # Just turn left when facing obstacle
             self.cmd.linear.x = 0.0
             self.cmd.angular.z = 0.3
             self.publisher_.publish(self.cmd)
             self.get_logger().info('Obstacle ahead, turning left...')
-        elif right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
-            # Too close to the wall, turn left slightly
-            self.cmd.linear.x = LINEAR_VEL * 0.5
-            self.cmd.angular.z = 0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too close to wall, adjusting left...')
-        elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
-            # Too far from the wall, turn right slightly
-            self.cmd.linear.x = LINEAR_VEL * 0.5
-            self.cmd.angular.z = -0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too far from wall, adjusting right...')
-        else:
-            # Maintain distance from the wall and move forward
-            self.cmd.linear.x = LINEAR_VEL
-            self.cmd.angular.z = 0.0
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Following the wall...')
+        return
+    else:
+        # Reset stuck counter if no obstacle in front
+        self.stuck_counter = 0
+
+    # 2. Wall found, follow the wall on the right while avoiding front obstacles
+    if right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
+        # Too close to the wall, turn left slightly
+        self.cmd.linear.x = LINEAR_VEL * 0.5
+        self.cmd.angular.z = 0.3
+        self.publisher_.publish(self.cmd)
+        self.get_logger().info('Too close to wall, adjusting left...')
+    elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
+        # Too far from the wall, turn right slightly
+        self.cmd.linear.x = LINEAR_VEL * 0.5
+        self.cmd.angular.z = -0.3
+        self.publisher_.publish(self.cmd)
+        self.get_logger().info('Too far from wall, adjusting right...')
+    else:
+        # Maintain distance from the wall and move forward
+        self.cmd.linear.x = LINEAR_VEL
+        self.cmd.angular.z = 0.0
+        self.publisher_.publish(self.cmd)
+        self.get_logger().info('Following the wall...')
 
     def update_distant_points(self, position):
         # Update the most distant points in each zone
@@ -138,17 +155,35 @@ class WallFollower(Node):
         for zone, coords in self.distant_points.items():
             self.get_logger().info(f'{zone.capitalize()} - Most distant point: {coords}')
             
-    def plot_path(self):
-        apartment_img = Image.open(APARTMENT_IMAGE_PATH)
-        plt.imshow(apartment_img, extent=[-10, 10, -10, 10])  # Adjust extent according to the map size
+def plot_path(self):
+    apartment_img = Image.open(APARTMENT_IMAGE_PATH)
+    
+    # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
+    # Swap x and y, and invert y-axis to correct rotation (counter-clockwise by 90 degrees)
+    extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
+    
+    # Load and show the apartment image
+    plt.imshow(apartment_img, extent=extent)
+    
+    # Convert the pose history to a numpy array for easier manipulation
+    data = np.array(self.pose_history)
+    
+    # Swap x and y to fix rotation and possibly invert y-axis (multiply y by -1)
+    path_x = data[:, 1]  # Use y as x
+    path_y = -data[:, 0]  # Use -x as y to correct orientation
+    
+    # Plot the adjusted path
+    plt.plot(path_x, path_y, label='Trial Path', color='red', linewidth=2)
 
-        data = np.array(self.pose_history)
-        plt.plot(data[:, 0], data[:, 1], label='Trial Path')
-
-        plt.legend()
-        plt.title('Robot Path for Trial')
-        plt.savefig('robot_path.png')
-        plt.clf()  # Clear the figure to avoid memory issues
+    # Add legend and title
+    plt.legend()
+    plt.title('Robot Path for Trial')
+    
+    # Save the plot as an image
+    plt.savefig('robot_path.png')
+    
+    # Clear the figure to free memory
+    plt.clf()  # Clear the figure to avoid memory issues
 
 def main(args=None):
     rclpy.init(args=args)
