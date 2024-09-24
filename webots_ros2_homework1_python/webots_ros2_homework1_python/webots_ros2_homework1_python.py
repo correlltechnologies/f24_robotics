@@ -5,6 +5,7 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from tf2_ros import TransformListener, Buffer
 from tf2_ros.transform_broadcaster import TransformBroadcaster
+import tf2_geometry_msgs  # Ensure you import this
 from tf_transformations import euler_from_quaternion
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
