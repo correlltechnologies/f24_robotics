@@ -51,7 +51,7 @@ class WallFollower(Node):
         self.wall_found = False  # Track if wall is found
         # Add an iteration counter and a constant N
         self.iteration_counter = 0
-        self.N = 25  # Change this to your desired number of iterations
+        self.N = 50  # Change this to your desired number of iterations
 
     def listener_callback1(self, msg1):
         scan = msg1.ranges
@@ -113,31 +113,45 @@ class WallFollower(Node):
             self.cmd.linear.x = LINEAR_VEL * 0.5
             self.cmd.angular.z = 0.3
             self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too close to wall, adjusting left...')
+            if self.iteration_counter >= self.N:
+                # Save the results and plot the path every N iterations
+                self.save_results()
+                self.plot_path()
+            
+                # Reset the counter
+                self.iteration_counter = 0
+                self.get_logger().info('Too close to wall, adjusting left...')
         elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
             # Too far from the wall, turn right slightly
             self.cmd.linear.x = LINEAR_VEL * 0.5
             self.cmd.angular.z = -0.3
             self.publisher_.publish(self.cmd)
-            self.get_logger().info('Too far from wall, adjusting right...')
+            if self.iteration_counter >= self.N:
+                # Save the results and plot the path every N iterations
+                self.save_results()
+                self.plot_path()
+            
+                # Reset the counter
+                self.iteration_counter = 0
+                self.get_logger().info('Too far from wall, adjusting right...')
         else:
             # Maintain distance from the wall and move forward
             self.cmd.linear.x = LINEAR_VEL
             self.cmd.angular.z = 0.0
             self.publisher_.publish(self.cmd)
-            self.get_logger().info('Following the wall...')
+            # Check if the counter has reached N
+            if self.iteration_counter >= self.N:
+                # Save the results and plot the path every N iterations
+                self.save_results()
+                self.plot_path()
+            
+                # Reset the counter
+                self.iteration_counter = 0
+                self.get_logger().info('Following the wall...')
         
         # Increment the iteration counter
         self.iteration_counter += 1
         
-        # Check if the counter has reached N
-        if self.iteration_counter >= self.N:
-            # Save the results and plot the path every N iterations
-            self.save_results()
-            self.plot_path()
-            
-            # Reset the counter
-            self.iteration_counter = 0
 
     def update_distant_points(self, position):
         # Update the most distant points in each zone
@@ -186,7 +200,7 @@ class WallFollower(Node):
         scaled_y = -data[:, 0] * scale_y  # Scale the x-values (which become y in the plot) and invert
 
         # Plot the adjusted path
-        plt.plot(path_x, path_y, label='Trial Path', color='red', linewidth=2)
+        plt.plot(scaled_x, scaled_y, label='Trial Path', color='red', linewidth=2)
 
         # Add legend and title
         plt.legend()
