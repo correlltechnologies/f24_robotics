@@ -66,67 +66,67 @@ class WallFollower(Node):
         self.save_results()
         self.plot_path()
 
-def timer_callback(self):
-    if not self.scan_cleaned:
-        return  # No data yet
+    def timer_callback(self):
+        if not self.scan_cleaned:
+            return  # No data yet
 
-    right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
-    front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
+        right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
+        front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
     
-    # 1. No wall on the right -> Move forward until wall is detected
-    if not self.wall_found:
-        if right_lidar_min > WALL_FOLLOW_DISTANCE:
+        # 1. No wall on the right -> Move forward until wall is detected
+        if not self.wall_found:
+            if right_lidar_min > WALL_FOLLOW_DISTANCE:
+                self.cmd.linear.x = LINEAR_VEL
+                self.cmd.angular.z = 0.0
+                self.publisher_.publish(self.cmd)
+                self.get_logger().info('Searching for wall...')
+            else:
+                self.wall_found = True  # Wall found, now start wall-following
+                self.get_logger().info('Wall detected! Starting to follow.')
+            return
+
+        # Check if robot is stuck (e.g., close obstacle in front for too long)
+        if front_lidar_min < SAFE_STOP_DISTANCE:
+            # Increment stuck counter
+            self.stuck_counter += 1
+
+            # If stuck for multiple consecutive checks, back up
+            if self.stuck_counter > 10:  # Customize how many cycles determine 'stuck'
+                self.cmd.linear.x = -0.1  # Back up slowly
+                self.cmd.angular.z = 0.0
+                self.publisher_.publish(self.cmd)
+                self.get_logger().info('Stuck! Backing up...')
+                self.stuck_counter = 0  # Reset stuck counter after backing up
+            else:
+                # Just turn left when facing obstacle
+                self.cmd.linear.x = 0.0
+                self.cmd.angular.z = 0.3
+                self.publisher_.publish(self.cmd)
+                self.get_logger().info('Obstacle ahead, turning left...')
+            return
+        else:
+            # Reset stuck counter if no obstacle in front
+            self.stuck_counter = 0
+
+        # 2. Wall found, follow the wall on the right while avoiding front obstacles
+        if right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
+            # Too close to the wall, turn left slightly
+            self.cmd.linear.x = LINEAR_VEL * 0.5
+            self.cmd.angular.z = 0.3
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Too close to wall, adjusting left...')
+        elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
+            # Too far from the wall, turn right slightly
+            self.cmd.linear.x = LINEAR_VEL * 0.5
+            self.cmd.angular.z = -0.3
+            self.publisher_.publish(self.cmd)
+            self.get_logger().info('Too far from wall, adjusting right...')
+        else:
+            # Maintain distance from the wall and move forward
             self.cmd.linear.x = LINEAR_VEL
             self.cmd.angular.z = 0.0
             self.publisher_.publish(self.cmd)
-            self.get_logger().info('Searching for wall...')
-        else:
-            self.wall_found = True  # Wall found, now start wall-following
-            self.get_logger().info('Wall detected! Starting to follow.')
-        return
-
-    # Check if robot is stuck (e.g., close obstacle in front for too long)
-    if front_lidar_min < SAFE_STOP_DISTANCE:
-        # Increment stuck counter
-        self.stuck_counter += 1
-
-        # If stuck for multiple consecutive checks, back up
-        if self.stuck_counter > 3:  # Customize how many cycles determine 'stuck'
-            self.cmd.linear.x = -0.1  # Back up slowly
-            self.cmd.angular.z = 0.0
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Stuck! Backing up...')
-            self.stuck_counter = 0  # Reset stuck counter after backing up
-        else:
-            # Just turn left when facing obstacle
-            self.cmd.linear.x = 0.0
-            self.cmd.angular.z = 0.3
-            self.publisher_.publish(self.cmd)
-            self.get_logger().info('Obstacle ahead, turning left...')
-        return
-    else:
-        # Reset stuck counter if no obstacle in front
-        self.stuck_counter = 0
-
-    # 2. Wall found, follow the wall on the right while avoiding front obstacles
-    if right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
-        # Too close to the wall, turn left slightly
-        self.cmd.linear.x = LINEAR_VEL * 0.5
-        self.cmd.angular.z = 0.3
-        self.publisher_.publish(self.cmd)
-        self.get_logger().info('Too close to wall, adjusting left...')
-    elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
-        # Too far from the wall, turn right slightly
-        self.cmd.linear.x = LINEAR_VEL * 0.5
-        self.cmd.angular.z = -0.3
-        self.publisher_.publish(self.cmd)
-        self.get_logger().info('Too far from wall, adjusting right...')
-    else:
-        # Maintain distance from the wall and move forward
-        self.cmd.linear.x = LINEAR_VEL
-        self.cmd.angular.z = 0.0
-        self.publisher_.publish(self.cmd)
-        self.get_logger().info('Following the wall...')
+            self.get_logger().info('Following the wall...')
 
     def update_distant_points(self, position):
         # Update the most distant points in each zone
@@ -142,6 +142,7 @@ def timer_callback(self):
         elif position.x > 0 and position.y < 0:  # Bottom right zone
             if position.x > self.distant_points["bottom_right"][0]:
                 self.distant_points["bottom_right"] = (position.x, position.y)
+    
     def save_results(self):
         # Save path history and distant points
         with open('trial_results.csv', 'w', newline='') as csvfile:
