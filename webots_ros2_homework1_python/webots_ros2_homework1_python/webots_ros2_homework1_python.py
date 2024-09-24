@@ -49,6 +49,9 @@ class WallFollower(Node):
         self.cmd = Twist()
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.wall_found = False  # Track if wall is found
+        # Add an iteration counter and a constant N
+        self.iteration_counter = 0
+        self.N = 10  # Change this to your desired number of iterations
 
     def listener_callback1(self, msg1):
         scan = msg1.ranges
@@ -61,10 +64,6 @@ class WallFollower(Node):
         self.odom_data = position
         self.pose_history.append((position.x, position.y))
         self.update_distant_points(position)
-
-        # Save results continuously after every update
-        self.save_results()
-        self.plot_path()
 
     def timer_callback(self):
         if not self.scan_cleaned:
@@ -127,6 +126,18 @@ class WallFollower(Node):
             self.cmd.angular.z = 0.0
             self.publisher_.publish(self.cmd)
             self.get_logger().info('Following the wall...')
+        
+        # Increment the iteration counter
+        self.iteration_counter += 1
+        
+        # Check if the counter has reached N
+        if self.iteration_counter >= self.N:
+            # Save the results and plot the path every N iterations
+            self.save_results()
+            self.plot_path()
+            
+            # Reset the counter
+            self.iteration_counter = 0
 
     def update_distant_points(self, position):
         # Update the most distant points in each zone
