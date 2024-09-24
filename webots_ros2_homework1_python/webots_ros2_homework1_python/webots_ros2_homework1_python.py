@@ -207,7 +207,7 @@ class WallFollower(Node):
         scaled_start_y = -x_start + scaled_y
 
         # Plot the adjusted path
-        plt.plot(-scaled_start_y, scaled_start_x, label='Trial Path', color='red', linewidth=2)
+        plt.plot(scaled_start_y, scaled_start_x, label='Trial Path', color='red', linewidth=2)
 
         # Plot the starting point
         plt.scatter(x_start, y_start, color='blue', marker='o', label='Starting Point', s=50)
