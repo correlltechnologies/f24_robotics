@@ -41,7 +41,7 @@ class WallFollower(Node):
         
         # TF buffer and listener to transform between odom and map frames
         self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         
         self.subscriber2 = self.create_subscription(
             Odometry,
