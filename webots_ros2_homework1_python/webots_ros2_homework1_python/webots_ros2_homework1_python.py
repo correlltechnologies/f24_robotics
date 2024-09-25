@@ -1,7 +1,5 @@
 import rclpy
 from rclpy.node import Node
-import tf2_ros
-from geometry_msgs.msg import TransformStamped
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
@@ -38,11 +36,6 @@ class WallFollower(Node):
             '/scan',
             self.listener_callback1,
             QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        
-        # TF buffer and listener to transform between odom and map frames
-        self.tf_buffer = tf2_ros.Buffer()
-        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
-        
         self.subscriber2 = self.create_subscription(
             Odometry,
             '/odom',
@@ -66,12 +59,7 @@ class WallFollower(Node):
 
     def listener_callback2(self, msg2):
         
-        try:
-            transform = self.tf_buffer.lookup_transform('map', 'odom', rclpy.time.Time())
-            position = msg2.pose.pose.position + transform.transform.translation
-        except tf2_ros.LookupException:
-            self.get_logger().warn("TF lookup failed, using relative positions.")
-            position = msg2.pose.pose.position
+        position = msg2.pose.pose.position
             
         if self.odom_data is not None:
             self.total_distance += math.sqrt((position.x - self.odom_data.x)**2 + (position.y - self.odom_data.y)**2)
@@ -221,7 +209,7 @@ class WallFollower(Node):
         scaled_start_y = -x_start + scaled_y
 
         # Plot the adjusted path
-        plt.plot(scaled_y, scaled_x, label='Trial Path', color='red', linewidth=2)
+        plt.plot(scaled_start_y, scaled_start_x, label='Trial Path', color='red', linewidth=2)
 
         # Plot the starting point
         plt.scatter(x_start, y_start, color='blue', marker='o', label='Starting Point', s=50)
