@@ -65,12 +65,12 @@ class WallFollower(Node):
 
     def timer_callback(self):
         if not self.scan_cleaned:
-            return  # No data yet
+            return
 
         right_lidar_min = min(self.scan_cleaned[RIGHT_FRONT_INDEX:RIGHT_SIDE_INDEX])
         front_lidar_min = min(self.scan_cleaned[LEFT_FRONT_INDEX:RIGHT_FRONT_INDEX])
     
-        # 1. No wall on the right -> Move forward until wall is detected
+        # No wall on the right, move forward until wall is detected
         if not self.wall_found:
             if right_lidar_min > WALL_FOLLOW_DISTANCE:
                 self.cmd.linear.x = LINEAR_VEL
@@ -78,24 +78,23 @@ class WallFollower(Node):
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Searching for wall...')
             else:
-                self.wall_found = True  # Wall found, now start wall-following
+                self.wall_found = True  # Wall found
                 self.get_logger().info('Wall detected! Starting to follow.')
             return
 
-        # Check if robot is stuck (e.g., close obstacle in front for too long)
+        # Check if robot is stuck
         if front_lidar_min < SAFE_STOP_DISTANCE:
-            # Increment stuck counter
             self.stuck_counter += 1
 
-            # If stuck for multiple consecutive checks, back up
-            if self.stuck_counter > 10:  # Customize how many cycles determine 'stuck'
-                self.cmd.linear.x = -0.1  # Back up slowly
+            # If stuck for number of iterations, back up
+            if self.stuck_counter > 10:
+                self.cmd.linear.x = -0.1  # Back up
                 self.cmd.angular.z = 0.0
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Stuck! Backing up...')
                 self.stuck_counter = 0  # Reset stuck counter after backing up
             else:
-                # Just turn left when facing obstacle
+                # Turn left when facing obstacle
                 self.cmd.linear.x = 0.0
                 self.cmd.angular.z = 0.3
                 self.publisher_.publish(self.cmd)
@@ -105,46 +104,35 @@ class WallFollower(Node):
             # Reset stuck counter if no obstacle in front
             self.stuck_counter = 0
 
-        # 2. Wall found, follow the wall on the right while avoiding front obstacles
+        # Wall found, follow the wall on the right
         if right_lidar_min < WALL_FOLLOW_DISTANCE - 0.1:
-            # Too close to the wall, turn left slightly
+            # Too close to the wall, turn left
             self.cmd.linear.x = LINEAR_VEL * 0.5
             self.cmd.angular.z = 0.3
             self.publisher_.publish(self.cmd)
             if self.iteration_counter >= self.N:
-                # Save the results and plot the path every N iterations
                 self.save_results()
-            
-                # Reset the counter
                 self.iteration_counter = 0
                 self.get_logger().info('Too close to wall, adjusting left...')
         elif right_lidar_min > WALL_FOLLOW_DISTANCE + 0.1:
-            # Too far from the wall, turn right slightly
+            # Too far from the wall, turn right
             self.cmd.linear.x = LINEAR_VEL * 0.5
             self.cmd.angular.z = -0.3
             self.publisher_.publish(self.cmd)
             if self.iteration_counter >= self.N:
-                # Save the results and plot the path every N iterations
                 self.save_results()
-            
-                # Reset the counter
                 self.iteration_counter = 0
                 self.get_logger().info('Too far from wall, adjusting right...')
         else:
-            # Maintain distance from the wall and move forward
+            # Continue moving forward
             self.cmd.linear.x = LINEAR_VEL
             self.cmd.angular.z = 0.0
             self.publisher_.publish(self.cmd)
-            # Check if the counter has reached N
             if self.iteration_counter >= self.N:
-                # Save the results and plot the path every N iterations
                 self.save_results()
-            
-                # Reset the counter
                 self.iteration_counter = 0
                 self.get_logger().info('Following the wall...')
-        
-        # Increment the iteration counter
+                
         self.iteration_counter += 1
         
 
