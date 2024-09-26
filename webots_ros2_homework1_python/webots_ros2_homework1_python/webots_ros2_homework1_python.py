@@ -88,7 +88,7 @@ class WallFollower(Node):
 
             # If stuck for number of iterations, back up
             if self.stuck_counter > 10:
-                self.cmd.linear.x = -0.1  # Back up
+                self.cmd.linear.x = -0.5  # Back up
                 self.cmd.angular.z = 0.0
                 self.publisher_.publish(self.cmd)
                 self.get_logger().info('Stuck! Backing up...')
