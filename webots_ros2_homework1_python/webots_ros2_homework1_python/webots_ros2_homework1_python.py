@@ -5,10 +5,7 @@ from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import Odometry
 from rclpy.qos import ReliabilityPolicy, QoSProfile
 import math
-import matplotlib.pyplot as plt
-import numpy as np
 import csv
-from PIL import Image
 
 LINEAR_VEL = 0.2
 STOP_DISTANCE = 0.2
@@ -22,7 +19,6 @@ FRONT_INDEX = 180
 LEFT_FRONT_INDEX = 150
 LEFT_SIDE_INDEX = 90
 DISTANCE_THRESHOLD = 0.001  # Threshold for determining the most distant points
-APARTMENT_IMAGE_PATH = "/home/quinn/f24_robotics/Homework1/apartment.png"
 
 class WallFollower(Node):
 
@@ -118,7 +114,6 @@ class WallFollower(Node):
             if self.iteration_counter >= self.N:
                 # Save the results and plot the path every N iterations
                 self.save_results()
-                self.plot_path()
             
                 # Reset the counter
                 self.iteration_counter = 0
@@ -131,7 +126,6 @@ class WallFollower(Node):
             if self.iteration_counter >= self.N:
                 # Save the results and plot the path every N iterations
                 self.save_results()
-                self.plot_path()
             
                 # Reset the counter
                 self.iteration_counter = 0
@@ -145,7 +139,6 @@ class WallFollower(Node):
             if self.iteration_counter >= self.N:
                 # Save the results and plot the path every N iterations
                 self.save_results()
-                self.plot_path()
             
                 # Reset the counter
                 self.iteration_counter = 0
@@ -183,47 +176,6 @@ class WallFollower(Node):
         for zone, coords in self.distant_points.items():
             self.get_logger().info(f'{zone.capitalize()} - Most distant point: {coords}')
             
-    def plot_path(self):
-        apartment_img = Image.open(APARTMENT_IMAGE_PATH)
-
-        # Assuming the image has a size of 20x20 units (you may need to adjust this based on actual map size)
-        extent = [-10, 10, -10, 10]  # Example extent for a 20x20 apartment
-
-        # Load and show the apartment image
-        plt.imshow(apartment_img, extent=extent)
-
-        # Convert the pose history to a numpy array for easier manipulation
-        data = np.array(self.pose_history)
-
-        # Scale the x and y axes by their respective scaling factors
-        scale_x = 3.134  # Scaling factor for x-axis
-        scale_y = 1.393  # Scaling factor for y-axis
-        scaled_x = data[:, 0] * scale_x  # Scale the y-values (which become x in the plot)
-        scaled_y = -data[:, 1] * scale_y  # Scale the x-values (which become y in the plot) and invert
-
-        map_offset = 1.8
-        # Define hardcoded starting point (x_start, y_start)
-        x_start = -7.6 + map_offset  # Adjust this value based on your setup
-        y_start = 3.5  # Adjust this value based on your setup
-        scaled_start_x = y_start + scaled_x
-        scaled_start_y = -x_start + scaled_y
-
-        # Plot the adjusted path
-        plt.plot(scaled_start_y, scaled_start_x, label='Trial Path', color='red', linewidth=2)
-
-        # Plot the starting point
-        plt.scatter(x_start, y_start, color='blue', marker='o', label='Starting Point', s=50)
-
-        # Add legend and title
-        plt.legend()
-        plt.title('Robot Path for Trial')
-
-        # Save the plot as an image
-        plt.savefig('robot_path.png')
-
-        # Clear the figure to free memory
-        plt.clf()
-
 
 def main(args=None):
     rclpy.init(args=args)
